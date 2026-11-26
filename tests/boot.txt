@@ -1,0 +1,10 @@
+symbols dungeon.noi
+waituntil game_ready == 1 3000 w1
+waituntil frames_rendered >= 1 600
+expectvdp display 1
+expect px == 1 w1
+expect py == 1 w1
+expect pf == 2 w1
+expect quick_mode == 0 w1
+expectcolors 10
+screenshot shots/boot.ppm
