@@ -66,7 +66,7 @@ hold 1
 run 4
 hold none
 run 80
-expect potions == 2 w1
+expect items+0 == 2 w1
 expect gold == 179 w1
 hold right
 run 4
@@ -76,7 +76,7 @@ hold 1
 run 4
 hold none
 run 80
-expect ethers == 1 w1
+expect items+1 == 1 w1
 expect gold == 154 w1
 hold 2
 run 4
@@ -145,7 +145,7 @@ hold 1
 run 4
 hold none
 run 80
-expect ethers == 0 w1
+expect items+1 == 0 w1
 expect mp == 6 w1
 echo pause menu: save
 hold 2
@@ -164,7 +164,7 @@ expect saves_made == 1 w1
 echo spoil the state, then die
 poke gold 0 w1
 poke weapon 0 w1
-poke potions 0 w1
+poke items+0 0 w1
 poke px 5 w1
 poke py 13 w1
 poke pf 1 w1
@@ -192,7 +192,7 @@ expect dead == 0 w1
 expect gold == 146 w1
 expect weapon == 1 w1
 expect armor == 1 w1
-expect potions == 2 w1
+expect items+0 == 2 w1
 expect px == 11 w1
 expect py == 9 w1
 expect pf == 1 w1

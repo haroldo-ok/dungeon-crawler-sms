@@ -22,9 +22,9 @@ L += ["expect weapon == 1 w1", "expect gold == 214 w1"]
 press("right", 20); press("1", 30); press("1", 80)    # ARMOR > BUY
 L += ["expect armor == 1 w1", "expect gold == 189 w1"]
 press("right", 20); press("right", 20); press("1", 30); press("1", 80)   # ITEMS > POTION
-L += ["expect potions == 2 w1", "expect gold == 179 w1"]
+L += ["expect items+0 == 2 w1", "expect gold == 179 w1"]
 press("right", 20); press("1", 80)                    # ETHER
-L += ["expect ethers == 1 w1", "expect gold == 154 w1"]
+L += ["expect items+1 == 1 w1", "expect gold == 154 w1"]
 press("2", 40)                                        # back to the shop menu
 L += ["poke hp 5 w1"]
 press("left", 20); press("1", 30); press("1", 80)     # INN (wraps from WEAPON) > BUY
@@ -36,11 +36,11 @@ L += ["screenshot shots/status.ppm"]
 press("1", 60)
 L += ["echo pause menu: drink the ether (MP is full: still consumed)", "poke mp 0 w1"]
 press("2", 40); press("right", 20); press("1", 30); press("right", 20); press("1", 80)
-L += ["expect ethers == 0 w1", "expect mp == 6 w1"]
+L += ["expect items+1 == 0 w1", "expect mp == 6 w1"]
 L += ["echo pause menu: save"]
 press("2", 40); press("left", 20); press("1", 200)
 L += ["expect saves_made == 1 w1",
-      "echo spoil the state, then die", "poke gold 0 w1", "poke weapon 0 w1", "poke potions 0 w1",
+      "echo spoil the state, then die", "poke gold 0 w1", "poke weapon 0 w1", "poke items+0 0 w1",
       "poke px 5 w1", "poke py 13 w1", "poke pf 1 w1", "poke hp 1 w1", "poke pdef 0 w1", "poke patk 1 w1"]
 press("up", 0)
 L += ["waituntil in_battle == 1 600 w1", "run 100"]
@@ -48,7 +48,7 @@ press("1", 400)
 L += ["waituntil dead == 1 2000 w1"]
 press("1", 300)
 L += ["echo continued from the battery save", "expect loads_made == 1 w1", "expect dead == 0 w1",
-      "expect gold == 146 w1", "expect weapon == 1 w1", "expect armor == 1 w1", "expect potions == 2 w1",
+      "expect gold == 146 w1", "expect weapon == 1 w1", "expect armor == 1 w1", "expect items+0 == 2 w1",
       "expect px == 11 w1", "expect py == 9 w1", "expect pf == 1 w1", "expect hp == 24 w1", "expect patk == 6 w1",
       "expect shown_cx == 11 w1", "screenshot shots/continued.ppm",
       "echo console reset: the title offers CONTINUE (needs tools/smstest with 'reset')",

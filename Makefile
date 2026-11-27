@@ -9,7 +9,11 @@ OBJS    := core.rel music.rel render.rel render_asm.rel gen_nt.rel battle.rel me
 
 all: $(PROG).sms
 
-gen/gen.c gen/gen_nt.c gen/gen.h: tools/gen.py
+# all game content (levels, texture sets, monsters, items, events, music) is
+# data in tools/content.py; gen.py checks it and compiles it to gen/
+CONTENT := tools/content.py tools/art.py
+
+gen/gen.c gen/gen_nt.c gen/gen.h: tools/gen.py $(CONTENT)
 	python3 tools/gen.py gen
 
 %.rel: src/%.c src/engine.h src/core.h src/game.h gen/gen.h
@@ -22,7 +26,7 @@ game.rel: src/game.c src/engine.h src/core.h gen/gen.h
 gen.rel: gen/gen.c gen/gen.h
 	$(CC) $(CFLAGS) $(GAMESEG) -c $< -o $@
 
-gen/music.c gen/music.h: tools/music.py
+gen/music.c gen/music.h: tools/music.py $(CONTENT)
 	python3 tools/music.py gen
 
 music.rel: gen/music.c gen/music.h
@@ -45,7 +49,13 @@ $(PROG).sms: $(PROG).ihx tools/mkrom.py
 	ihx2sms $(PROG).ihx $(PROG)_code.sms
 	python3 tools/mkrom.py $(PROG)_code.sms gen $(PROG).sms
 
+# validate content + simulate the battles, without building
+check:
+	python3 tools/gen.py --check
+	python3 tools/balance.py
+
 test: $(PROG).sms
+	python3 tests/content_check.py | tail -1
 	smstest $(PROG).sms tests/boot.txt
 	smstest $(PROG).sms tests/title.txt | tail -1
 	python3 tests/mkexplore.py && smstest $(PROG).sms tests/explore.txt | tail -1
@@ -56,7 +66,8 @@ test: $(PROG).sms
 	tests/sound.sh $(PROG).sms
 	tests/visual.sh $(PROG).sms
 	tests/bench.sh
+	tests/demo_content.sh | tail -1
 
 clean:
 	rm -f *.rel *.ihx *.sym *.lst *.map *.noi *.lk *.asm *.rst *.sms
-.PHONY: all clean test
+.PHONY: all clean test check

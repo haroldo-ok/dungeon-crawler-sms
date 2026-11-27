@@ -1,8 +1,9 @@
 /* SMS Dungeon - a first-person grid dungeon crawler for the Sega Master System.
    Grid movement with smooth interpolated steps/turns, real-time texture mapped
    walls, floor and ceiling, sky wherever a cell has no ceiling, doors, keys,
-   secret walls, cell events, two levels, an automap and skeletons drawn as
-   depth-tested billboards.                                                   */
+   secret walls, an automap and monsters drawn as depth-tested billboards.
+   Levels, monsters, items and events are data (tools/content.py -> gen.c):
+   this file runs them - events are small scripts (run_event).             */
 #include <SMSlib.h>
 #include "engine.h"
 #include "core.h"
@@ -19,8 +20,6 @@ __sfr __at 0x7F PSG_PORT;
 static const signed char DX[4] = { 0, 1, 0, -1 };
 static const signed char DY[4] = { -1, 0, 1, 0 };
 
-/* live maps of every level (doors stay open when you come back) */
-#define LVLMAP(l) ((unsigned char *)(0xDB00 + ((unsigned int)(l) << 8)))
 
 #define WAKE_DIST  7
 #define IDLE_TICK  100      /* VBlanks between monster moves while you wait  */
@@ -151,18 +150,19 @@ void draw_status(void)               /* row 16: HP / MP / level              */
     print_num2(26, 16, plv);
 }
 
-void draw_inventory(void)            /* row 17: keys, potions, ethers, gold  */
+void draw_inventory(void)            /* row 17: keys, consumables, gold      */
 {
-    print(3, 17, "KEY");
-    print_num(7, 17, nkeys, 1);
-    print(10, 17, "POT");
-    print_num2(14, 17, potions);
-    print(18, 17, "ETH");
-    print_num2(22, 17, ethers);
-    print(26, 17, "G");
-    print_num(27, 17, gold, 4);
+    unsigned char i;
+    print(3, 17, "K");
+    print_num(4, 17, nkeys, 1);
+    for (i = 0; i < NCONS; i++) {
+        print(6 + i * 6, 17, cons_hud[i]);
+        print_num2(9 + i * 6, 17, items[i]);
+    }
+    print(24, 17, "G");
+    print_num(25, 17, gold, 4);
     print(7, 0, "SMS DUNGEON");
-    print(19, 0, "          ");
+    print(19, 0, "            ");
     print(19, 0, level_name[level]);
 }
 
@@ -242,9 +242,24 @@ static unsigned char cell(unsigned char x, unsigned char y)
     return map_ram[((y & 15) << 4) | (x & 15)];
 }
 
-static void set_cell(unsigned char x, unsigned char y, unsigned char m)
+/* open a wall / door for good: the live map plus the level's opened bits */
+static void open_cell(unsigned char x, unsigned char y)
 {
-    map_ram[((y & 15) << 4) | (x & 15)] = m;
+    unsigned char i = ((y & 15) << 4) | (x & 15);
+    map_ram[i] = level_open[level];
+    OPENED(level)[i >> 3] |= 1 << (i & 7);
+}
+
+/* rebuild a level's live map: ROM map + whatever was opened since */
+static void load_level_map(unsigned char l)
+{
+    const unsigned char *src = (const unsigned char *)MAP_DATA + ((unsigned int)l << 8);
+    unsigned char i = 0, o = level_open[l];
+    MAP_SLOT2(DATA_BANK);                    /* the maps live in the data bank   */
+    do {
+        map_ram[i] = (OPENED(l)[i >> 3] & (1 << (i & 7))) ? o : src[i];
+    } while (++i);
+    render_set_theme(level_theme[l]);
 }
 
 static void engage(unsigned char i);
@@ -272,18 +287,15 @@ static unsigned char obj_at(unsigned char x, unsigned char y, unsigned char type
 
 static void mark_visited(void)
 {
-    visited[level][(py << 1) | (px >> 3)] |= 1 << (px & 7);
+    VISITED(level)[(py << 1) | (px >> 3)] |= 1 << (px & 7);
 }
 
 static unsigned char is_visited(unsigned char l, unsigned char x, unsigned char y)
 {
-    return visited[l][(y << 1) | (x >> 3)] & (1 << (x & 7));
+    return VISITED(l)[(y << 1) | (x >> 3)] & (1 << (x & 7));
 }
 
 /* ---- rendering glue ------------------------------------------------------- */
-/* object kind -> scale class and first sprite frame (see tools/gen.py) */
-static const unsigned char KIND_CLS[10]   = { 0, 0, 1, 2, 0, 3, 0, 3, 4, 1 };
-static const unsigned char KIND_FRAME[10] = { 0, 0, 3, 4, 8, 7, 11, 12, 16, 15 };
 
 static void build_visible(unsigned char cx, unsigned char cy)
 {
@@ -298,8 +310,8 @@ static void build_visible(unsigned char cx, unsigned char cy)
         if (dx < -12 || dx > 12 || dy < -12 || dy > 12) continue;
         vis_x[vis_n] = obj_x[i];
         vis_y[vis_n] = obj_y[i];
-        vis_type[vis_n] = KIND_CLS[t];
-        vis_frame[vis_n] = KIND_FRAME[t] + obj_frame[i];
+        vis_type[vis_n] = kind_cls[t];        /* scale class + sprite frame: gen.c */
+        vis_frame[vis_n] = kind_frame[t] + obj_frame[i];
         vis_n++;
     }
 }
@@ -330,13 +342,9 @@ static void fb_px(unsigned char x, unsigned char y, unsigned char c)
     *p = (x & 1) ? c : (c << 4);
 }
 
-static unsigned char map_colour(unsigned char m)
+static unsigned char map_colour(unsigned char m)    /* per texture set, from gen.c */
 {
-    if (m < 16) return (m & 3) == 1 ? 8 : (m & 3) == 2 ? 6 : 2;   /* grass, wood, stone */
-    if (m == M_DOOR) return 5;
-    if (m == M_LOCKED) return 15;
-    if (m == M_STAIRS) return 12;
-    return 1;                                                      /* walls */
+    return theme_mapcol[((unsigned int)level_theme[level] << 5) + (m & 31)];
 }
 
 static void draw_automap(void)
@@ -369,7 +377,7 @@ static void calm_monsters(void);
 void open_automap(void)
 {
     map_open = 1;
-    message("MAP  L/R STEP MODE|UP DRINK POTION  2 EXIT");
+    message(text_map);
     draw_automap();
 }
 
@@ -410,9 +418,9 @@ static void title_screen(void)
     music_play(MUS_TITLE);
     clear_row(0);
     for (y = 16; y < 24; y++) clear_row(y);
-    print(9, 17, "THE LOST CROWN");
+    print(TITLE_X, 17, text_title);
     print(8, 20, "PRESS 1 TO BEGIN");
-    print(3, 23, "A SEGA MASTER SYSTEM QUEST");
+    print(TAGLINE_X, 23, text_tagline);
     poll_presses();
     for (;;) {
         render_stamped(9, 9, f, ROT[k], LOGO_RLE);
@@ -431,7 +439,7 @@ static void start_menu(void)
     static const char * const TITLE_MENU[2] = { "CONTINUE", "NEW GAME" };
     new_game();                      /* level 1: the title shows its courtyard */
     title_screen();
-    music_play(MUS_KEEP);
+    music_play(level_music[level]);
     draw_explore_hud();
     if (save_valid()) {
         while (anim_pos < anim_len) { render_and_flip(seq_cx[anim_pos], seq_cy[anim_pos], seq_f[anim_pos], seq_pose[anim_pos]); anim_pos++; }
@@ -439,7 +447,7 @@ static void start_menu(void)
         if (ui_menu((const char **)TITLE_MENU, 2) == 0) { load_game(); return; }
         draw_explore_hud();
     }
-    message("FIND THE LOST CROWN|DEEP BELOW THE KEEP");
+    message(text_intro);
 }
 
 static void ending_say(const char *s)
@@ -460,14 +468,14 @@ static void ending(void)
     ending_pending = 0;
     in_ending = 1;
     music_play(MUS_ENDING);
-    ending_say("THE LOST CROWN IS YOURS!");
-    ending_say("THE LICH KING IS NO MORE.|THE KEEP IS SAFE AT LAST");
+    ending_say(text_ending[0]);
+    ending_say(text_ending[1]);
     for (y = 16; y < 24; y++) clear_row(y);
     print(3, 16, "LEVEL");      print_num2(9, 16, plv);
     print(13, 16, "FOES SLAIN"); print_num(24, 16, kills, 3);
     print(3, 17, "GOLD");       print_num(9, 17, gold, 4);
     print(15, 17, "STEPS");     print_num(21, 17, moves, 5);
-    ending_say("THANK YOU FOR PLAYING!");
+    ending_say(text_ending[2]);
     render_stamped(px, py, (pf + 2) & 3, 0, THE_END_RLE);   /* look back into the hall */
     message("PRESS 1 TO RETURN|TO THE TITLE");
     poll_presses();
@@ -498,122 +506,112 @@ static const unsigned char SEQ[2][3][5] = {
 };
 static const unsigned char SEQ_LEN[2] = { 5, 3 };
 
-/* the current level's live map back into its saved copy (before a save) */
-void store_level_map(void)
-{
-    unsigned char i = 0;
-    do { LVLMAP(level)[i] = map_ram[i]; } while (++i);
-}
-
 /* after the save block was copied back into RAM */
 void after_load(void)
 {
-    unsigned char i = 0;
-    do { map_ram[i] = LVLMAP(level)[i]; } while (++i);
+    unsigned char i;
+    load_level_map(level);
     for (i = 0; i < NOBJ; i++) obj_frame[i] = 0;
     dead = 0; map_open = 0; in_battle = 0; battle_pending = 0xFF;
-    music_play(MUS_KEEP + level);
+    music_play(level_music[level]);
     draw_explore_hud();
     redraw();
 }
 
 static void change_level(unsigned char l, unsigned char x, unsigned char y, unsigned char f)
 {
-    unsigned char i = 0;
-    do { LVLMAP(level)[i] = map_ram[i]; } while (++i);
     level = l;
-    do { map_ram[i] = LVLMAP(level)[i]; } while (++i);
-    music_play(MUS_KEEP + level);
+    load_level_map(l);
+    music_play(level_music[l]);
     px = x; py = y; pf = f;
     mark_visited();
 }
 
-/* returns the event index (into ev_data) at x,y on this level or 0xFF */
+/* ---- events -------------------------------------------------------------------
+   Each event is a cell + a little script of actions (OP_* in gen.h, written in
+   tools/content.py).  On an open cell it runs when you step there; on a wall
+   cell (stairs, a lever) when you walk into it or use it.                    */
+
+/* the event on x,y of this level, or 0xFF */
 static unsigned char event_at(unsigned char x, unsigned char y)
 {
     unsigned char i;
     for (i = ev_start[level]; i < ev_start[level + 1]; i++)
-        if (ev_data[i * 8] == x && ev_data[i * 8 + 1] == y) return i;
+        if (ev_x[i] == x && ev_y[i] == y) return i;
     return 0xFF;
 }
 
-static void show_event_msg(unsigned char e)
+static unsigned char ev_spent(unsigned char e)  /* a one-shot event that already ran */
 {
-    last_msg = ev_data[e * 8 + 7];
-    message(messages[last_msg]);
+    return ev_once[e] && (ev_done[e >> 3] & (1 << (e & 7)));
 }
 
-static void take_stairs(unsigned char e)
+static void give(unsigned char *v, unsigned char n)
 {
-    const unsigned char *d = ev_data + e * 8;
-    change_level(d[3], d[4], d[5], d[6]);
-    draw_inventory();                        /* level name on the top line     */
-    show_event_msg(e);
-    SFX_DOOR();
-    redraw();
+    *v = *v + n > 99 ? 99 : *v + n;
+}
+
+/* runs event e; returns 0 if there was nothing to do */
+static unsigned char run_event(unsigned char e)
+{
+    const unsigned char *p;
+    unsigned char k, ex = ev_x[e], ey = ev_y[e], need_redraw = 0, need_inv = 0;
+    if (ev_spent(e)) return 0;
+    ev_done[e >> 3] |= 1 << (e & 7);
+    p = ev_script + ev_code[e];
+    for (;;) {
+        switch (*p++) {
+        case OP_MSG:
+            last_msg = *p;
+            message(messages[*p++]);
+            break;
+        case OP_ITEM:   give(&items[p[0]], p[1]); p += 2; need_inv = 1; break;
+        case OP_KEYS:   give(&nkeys, *p++); need_inv = 1; break;
+        case OP_GOLD:   gold += p[0] | ((unsigned int)p[1] << 8); p += 2; need_inv = 1; break;
+        case OP_HEAL:   hp = maxhp; mp = maxmp; draw_status(); break;
+        case OP_TELE:
+            px = p[0]; py = p[1]; pf = p[2]; p += 3;
+            mark_visited();
+            need_redraw = 1;
+            break;
+        case OP_STAIRS:
+            change_level(p[0], p[1], p[2], p[3]); p += 4;
+            need_inv = need_redraw = 1;          /* level name on the top line     */
+            break;
+        case OP_TAKE:
+            k = obj_at(ex, ey, 0);
+            if (k != 0xFF) obj_type[k] = 0;
+            need_redraw = 1;
+            break;
+        case OP_OPEN:   open_cell(p[0], p[1]); p += 2; need_redraw = 1; break;
+        case OP_SOUND:
+            k = *p++;
+            if (k == 0) SFX_PICKUP(); else if (k == 1) SFX_DOOR(); else SFX_MAGIC();
+            break;
+        case OP_WIN:    won = 1; ending_pending = 1; break;
+        default:        goto done;               /* OP_END */
+        }
+    }
+done:
+    if (need_inv) draw_inventory();
+    if (need_redraw) redraw();
+    return 1;
+}
+
+/* the event in the wall cell ahead, if it still has something to do */
+static unsigned char wall_event(unsigned char x, unsigned char y)
+{
+    unsigned char e = event_at(x, y);
+    return (e != 0xFF && !ev_spent(e)) ? e : 0xFF;
 }
 
 /* the player has just arrived on px,py */
 static void enter_cell(void)
 {
-    unsigned char e = event_at(px, py), k;
-    const unsigned char *d;
+    unsigned char e = event_at(px, py);
     mark_visited();
     clear_message();
-    if (e == 0xFF) return;
-    d = ev_data + e * 8;
-    switch (d[2]) {
-    case EV_MSG:
-        if (!(ev_done[e >> 3] & (1 << (e & 7)))) show_event_msg(e);
-        break;
-    case EV_KEY:
-        if (!(ev_done[e >> 3] & (1 << (e & 7)))) {
-            nkeys++;
-            k = obj_at(px, py, OBJ_KEY);
-            if (k != 0xFF) obj_type[k] = 0;
-            show_event_msg(e);
-            draw_inventory();
-            SFX_PICKUP();
-            redraw();
-        }
-        break;
-    case EV_HEAL:
-        hp = maxhp; mp = maxmp;
-        draw_status();
-        show_event_msg(e);
-        SFX_PICKUP();
-        break;
-    case EV_TELE:
-        px = d[3]; py = d[4]; pf = d[5];
-        mark_visited();
-        show_event_msg(e);
-        SFX_DOOR();
-        redraw();
-        break;
-    case EV_CHEST:
-        if (!(ev_done[e >> 3] & (1 << (e & 7)))) {
-            potions += d[3];
-            gold += d[4];
-            k = obj_at(px, py, OBJ_CHEST);
-            if (k != 0xFF) obj_type[k] = 0;
-            show_event_msg(e);
-            draw_inventory();
-            SFX_PICKUP();
-            redraw();                        /* the chest disappears            */
-        }
-        break;
-    case EV_WIN:
-        if (!won) {
-            won = 1;
-            k = obj_at(px, py, OBJ_CROWN);
-            if (k != 0xFF) obj_type[k] = 0;
-            show_event_msg(e);
-            SFX_PICKUP();
-            ending_pending = 1;
-        }
-        break;
-    }
-    ev_done[e >> 3] |= 1 << (e & 7);
+    if (e != 0xFF) run_event(e);
 }
 
 static void start_move(signed char dx, signed char dy, unsigned char base_first, unsigned char kind)
@@ -622,18 +620,20 @@ static void start_move(signed char dx, signed char dy, unsigned char base_first,
     unsigned char nx = px + dx, ny = py + dy, k, n = SEQ_LEN[quick_mode], m = cell(nx, ny);
     const unsigned char *sq = SEQ[quick_mode][kind];
     anim_len = 0; anim_pos = 0;
-    if (m == M_STAIRS && kind == 0 && base_first) {
-        k = event_at(nx, ny);
-        if (k != 0xFF) { take_stairs(k); moves++; return; }
+    if (m >= 16 && kind == 0 && base_first) {   /* walking into stairs, a lever... */
+        k = wall_event(nx, ny);
+        if (k != 0xFF) { run_event(k); moves++; return; }
     }
     k = monster_at(nx, ny);
     if (k != 0xFF) {                         /* walking into a monster: fight  */
         engage(k);
         return;
     }
-    if (obj_at(nx, ny, OBJ_MERCHANT) != 0xFF) {
+    k = obj_at(nx, ny, 0);
+    if (k != 0xFF && BLOCKS(obj_type[k])) {   /* a merchant or other solid prop */
         bumps++;
-        message("THE MERCHANT SMILES.|PRESS 1 TO TRADE");
+        k = kind_bump[obj_type[k]];
+        if (k != 0xFF) message(messages[k]);
         return;
     }
     if (m >= 16) {
@@ -721,12 +721,9 @@ static unsigned char monsters_turn(void)
         dx = px - obj_x[i]; dy = py - obj_y[i];
         adx = dx < 0 ? -dx : dx; ady = dy < 0 ? -dy : dy;
         if (adx + ady > WAKE_DIST) continue;
-        if (obj_type[i] == OBJ_LICH && adx + ady > 1) continue;   /* the boss waits */
+        if ((kind_flags[obj_type[i]] & KF_BOSS) && adx + ady > 1) continue;   /* bosses wait */
         if (adx + ady == 1) {                /* adjacent: it attacks           */
-            message(obj_type[i] == OBJ_BAT ? "BATS SWOOP DOWN ON YOU!" :
-                    obj_type[i] == OBJ_GHOST ? "A GHOST DRIFTS AT YOU!" :
-                    obj_type[i] == OBJ_SPIDER ? "SPIDERS DROP FROM ABOVE!" :
-                    obj_type[i] == OBJ_LICH ? "THE LICH KING RISES!" : "A SKELETON ATTACKS!");
+            message(MON(obj_type[i])->attack);
             engage(i);
             return 0;
         }
@@ -755,19 +752,22 @@ static void use_ahead(void)
     if (k != 0xFF) {
         engage(k);
         return;
-    } else if (obj_at(nx, ny, OBJ_MERCHANT) != 0xFF) {
+    } else if ((k = obj_at(nx, ny, 0)) != 0xFF && (kind_flags[obj_type[k]] & KF_SHOP)) {
         shop();
         draw_explore_hud();
         poll_presses();
         return;
+    } else if ((k = wall_event(nx, ny)) != 0xFF) {   /* stairs, levers: content events */
+        run_event(k);
+        return;
     } else if (m == M_DOOR) {
-        set_cell(nx, ny, M_OPEN);
+        open_cell(nx, ny);
         SFX_DOOR();
         message("THE DOOR CREAKS OPEN");
     } else if (m == M_LOCKED) {
         if (nkeys) {
             nkeys--;
-            set_cell(nx, ny, M_OPEN);
+            open_cell(nx, ny);
             SFX_DOOR();
             message("THE KEY TURNS. THE DOOR|SWINGS OPEN");
         } else {
@@ -775,12 +775,9 @@ static void use_ahead(void)
             message("LOCKED. YOU NEED A KEY");
         }
     } else if (m == M_SECRET) {
-        set_cell(nx, ny, M_OPEN);
+        open_cell(nx, ny);
         SFX_DOOR();
         message("THE WALL SLIDES AWAY!|A SECRET PASSAGE");
-    } else if (m == M_STAIRS) {
-        k = event_at(nx, ny);
-        if (k != 0xFF) { take_stairs(k); return; }
     } else {
         message("NOTHING TO USE HERE");
         return;
@@ -791,12 +788,9 @@ static void use_ahead(void)
 /* ---- game setup ------------------------------------------------------------ */
 static void new_game(void)
 {
-    unsigned char i, l;
-    for (l = 0; l < NLEVELS; l++) {
-        i = 0;
-        do { LVLMAP(l)[i] = map_init[((unsigned int)l << 8) + i]; } while (++i);
-        for (i = 0; i < 32; i++) visited[l][i] = 0;
-    }
+    unsigned int j;
+    unsigned char i;
+    for (j = 0; j < LVLSTATE_LEN; j++) LVLSTATE[j] = 0;     /* nothing seen or opened */
     for (i = 0; i < NOBJ; i++) {
         obj_type[i] = obj_init[i * 5];
         obj_lvl[i] = obj_init[i * 5 + 1];
@@ -808,15 +802,14 @@ static void new_game(void)
     }
     for (i = 0; i < 16; i++) ev_done[i] = 0;
     level = START_L;
-    i = 0;
-    do { map_ram[i] = LVLMAP(level)[i]; } while (++i);
+    load_level_map(level);
     px = START_X; py = START_Y; pf = START_F;
     new_player();
     dead = 0; won = 0; map_open = 0; battle_pending = 0xFF; in_battle = 0; ending_pending = 0;
     mark_visited();
-    music_play(MUS_KEEP);
+    music_play(level_music[level]);
     draw_explore_hud();
-    message("FIND THE LOST CROWN|DEEP BELOW THE KEEP");
+    message(text_intro);
     redraw();
 }
 
@@ -837,7 +830,6 @@ void main(void)
     SMS_copySpritestoSAT();
     PSG_PORT = 0x9F; PSG_PORT = 0xBF; PSG_PORT = 0xDF; PSG_PORT = 0xFF;
 
-    render_init();
     back_buf = 0;
     moves = turns = bumps = uses = hits_taken = kills = 0;
     sfx_timer = tone_timer = 0;
@@ -899,16 +891,9 @@ void main(void)
                 } else if (pressed & (PORT_A_KEY_LEFT | PORT_A_KEY_RIGHT)) {
                     quick_mode ^= 1;
                     message(quick_mode ? "STEP MODE: QUICK" : "STEP MODE: SMOOTH");
-                } else if (pressed & PORT_A_KEY_UP) {
-                    if (!potions) message("YOU HAVE NO POTIONS");
-                    else if (hp == maxhp) message("YOU ARE ALREADY HEALTHY");
-                    else {
-                        potions--;
-                        hp = hp + 25 > maxhp ? maxhp : hp + 25;
-                        SFX_PICKUP();
-                        message("YOU DRINK A POTION.|YOU FEEL MUCH BETTER");
-                        draw_status(); draw_inventory();
-                    }
+                } else if (pressed & PORT_A_KEY_UP) {     /* the first consumable */
+                    if (hp == maxhp && items[0]) message("YOU ARE ALREADY HEALTHY");
+                    else if (use_item(0)) message(cons_use[0]);
                 }
             } else if (pressed & PORT_A_KEY_2) {
                 pause_menu();                /* blocking; may open the map      */

@@ -34,14 +34,14 @@ L += ["waituntil in_battle == 0 3000 w1", "expect bt_result == 1 w1", "expect ki
 
 # 2. heal + potion inside a fight with three bats; then FIRE
 L.append("echo 2. HEAL, POTION and FIRE against three bats")
-L += ["poke hp 5 w1", "poke potions 2 w1"]
+L += ["poke hp 5 w1", "poke items+0 2 w1"]
 tele(9, 7, 1)
 start_battle()
 L += ["expect e_n == 3 w1", "screenshot shots/bt_bats.ppm"]
 press("right", 20); press("1", 20); press("1", 300)            # MAGIC > HEAL
 L += ["expect mp == 6 w1", "expect hp > 5 w1"]
 press("right", 20); press("right", 20); press("1", 30); press("1", 300)   # ITEM > POTION
-L += ["expect potions == 1 w1"]
+L += ["expect items+0 == 1 w1"]
 press("right", 20); press("1", 20); press("right", 20); press("1", 20)   # MAGIC > FIRE
 L += ["screenshot shots/bt_target.ppm"]
 press("1", 300)                                                 # target

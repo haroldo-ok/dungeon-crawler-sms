@@ -47,46 +47,9 @@ def ticks_of(text):
 
 
 # (name, tempo frames/tick, loop, melody, bass)
-SONGS = [
-    ("TITLE", 7, True,
-     "A4:4 C5:2 E5:2 A5:6 G5:2 | E5:4 D5:2 C5:2 D5:8 | C5:4 D5:2 E5:2 F5:4 E5:2 D5:2 | E5:12 r:4 |"
-     "A4:4 C5:2 E5:2 A5:6 B5:2 | C6:4 B5:2 A5:2 G5:8 | F5:4 E5:2 D5:2 E5:4 G#5:4 | A5:12 r:4",
-     "A3:4 E3:4 A3:4 E3:4 | G3:4 D3:4 G3:4 D3:4 | F3:4 C3:4 G3:4 D3:4 | E3:4 B2:4 E3:4 G#3:4 |"
-     "A3:4 E3:4 A3:4 E3:4 | C3:4 G3:4 E3:4 G3:4 | D3:4 A3:4 E3:4 E3:4 | A2:4 E3:4 A3:8"),
-    ("KEEP", 9, True,
-     "D4:6 F4:2 A4:8 | G4:4 F4:4 E4:8 | D4:6 F4:2 A4:4 C5:4 | B4:8 A4:8 |"
-     "G4:6 A4:2 B4:4 A4:4 | G4:4 F4:4 E4:8 | F4:4 E4:4 D4:4 C4:4 | D4:12 r:4",
-     "D3:8 A3:8 | C3:8 G3:8 | D3:8 A3:8 | G3:8 A3:8 |"
-     "E3:8 B3:8 | C3:8 A2:8 | B2:8 A2:8 | D3:16"),
-    ("CRYPT", 11, True,
-     "E4:8 r:4 G4:4 | F#4:8 r:8 | E4:4 D#4:4 E4:4 B4:4 | A4:12 r:4 |"
-     "G4:8 r:4 B4:4 | C5:8 B4:8 | A4:4 G4:4 F#4:4 D#4:4 | E4:12 r:4",
-     "E3:16 | D#3:16 | E3:16 | C3:16 | E3:16 | A2:16 | B2:16 | E3:16"),
-    ("CATACOMBS", 10, True,
-     "A3:4 r:4 D#4:4 r:4 | C4:8 B3:8 | A3:4 r:2 C4:2 F4:4 E4:4 | D#4:12 r:4 |"
-     "A3:4 r:4 E4:4 r:4 | F4:8 E4:8 | D#4:4 C4:4 B3:4 G#3:4 | A3:12 r:4",
-     "A2:8 A2:8 | F3:8 E3:8 | A2:8 D3:8 | B2:16 | A2:8 A2:8 | D3:8 C3:8 | B2:8 E3:8 | A2:16"),
-    ("BATTLE", 5, True,
-     "E5:2 E5:2 B4:2 E5:2 G5:2 F#5:2 E5:2 B4:2 | D5:2 D5:2 A4:2 D5:2 F#5:2 E5:2 D5:2 A4:2 |"
-     "C5:2 C5:2 G4:2 C5:2 E5:2 D5:2 C5:2 G4:2 | B4:2 C5:2 D5:2 D#5:2 E5:4 r:4",
-     "E3:2 E3:2 E4:2 E3:2 E3:2 E3:2 E4:2 E3:2 | D3:2 D3:2 D4:2 D3:2 D3:2 D3:2 D4:2 D3:2 |"
-     "C3:2 C3:2 C4:2 C3:2 C3:2 C3:2 C4:2 C3:2 | B2:2 B2:2 B3:2 B2:2 B2:4 B3:4"),
-    ("BOSS", 5, True,
-     "A4:2 A4:2 C5:2 A4:2 D#5:2 D5:2 C5:2 A4:2 | G4:2 G4:2 A#4:2 G4:2 D5:2 C#5:2 A#4:2 G4:2 |"
-     "F4:2 A4:2 C5:2 F5:2 E5:2 C5:2 A4:2 E5:2 | D#5:4 E5:4 A5:4 r:4",
-     "A2:2 A3:2 A2:2 A3:2 A2:2 A3:2 A2:2 A3:2 | G3:2 D3:2 G3:2 D3:2 G3:2 D3:2 G3:2 D3:2 |"
-     "F3:2 C3:2 F3:2 C3:2 E3:2 B2:2 E3:2 B2:2 | B2:4 E3:4 A2:8"),
-    ("VICTORY", 6, False,
-     "C5:2 E5:2 G5:2 C6:6 r:2 A5:2 B5:2 C6:8",
-     "C3:6 E3:6 G3:4 C4:8"),
-    ("GAMEOVER", 9, False,
-     "E4:6 D4:6 C4:6 B3:12",
-     "A2:12 E3:6 A2:12"),
-    ("ENDING", 8, True,
-     "C5:6 G4:2 C5:4 E5:4 | D5:6 C5:2 B4:8 | A4:6 B4:2 C5:4 A4:4 | G4:12 r:4 |"
-     "C5:6 G4:2 C5:4 E5:4 | F5:6 E5:2 D5:4 F5:4 | E5:4 D5:4 C5:4 B4:4 | C5:12 r:4",
-     "C3:8 G3:8 | G3:8 D3:8 | F3:8 C3:8 | G3:8 B2:8 | C3:8 G3:8 | F3:8 A3:8 | G3:8 D3:8 | C3:16"),
-]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import importlib
+SONGS = importlib.import_module(os.environ.get("SMS_CONTENT", "content")).SONGS   # tools/content.py
 
 
 def main():

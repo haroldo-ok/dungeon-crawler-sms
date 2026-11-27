@@ -10,27 +10,8 @@
 #include "game.h"
 #include "music.h"
 
-typedef struct {
-    const char *name;
-    unsigned char hp, atk, def, xp, gold, frame, cls, fire_weak, run;
-} MonDef;
-
-/* indexed by object kind (OBJ_SKEL = 1, OBJ_BAT = 3, OBJ_GHOST = 4, OBJ_SPIDER = 7, OBJ_LICH = 8) */
-static const MonDef MON[9] = {
-    { "", 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-    { "SKELETON", 10, 6, 2, 9, 6, 0, 0, 0, 60 },
-    { "", 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-    { "GIANT BAT", 6, 5, 0, 4, 2, 4, 2, 0, 40 },
-    { "GHOST", 22, 10, 6, 24, 14, 8, 0, 1, 50 },
-    { "", 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-    { "", 0, 0, 0, 0, 0, 0, 0, 0, 0 },
-    { "SPIDER", 16, 10, 3, 15, 8, 12, 3, 0, 50 },
-    { "LICH KING", 110, 14, 8, 200, 0, 16, 4, 0, 0 },
-};
-
-/* experience needed to reach level 2, 3, ... */
-static const unsigned int NEXT_XP[9] = { 15, 40, 80, 140, 220, 320, 450, 600, 800 };
-#define MAX_LEVEL 10
+/* Monster stats, texts and spells come from mon_tab (tools/content.py). */
+#define FIRE_WEAK 16                 /* mon_tab flags bit (gen.py)              */
 
 /* where the group stands: screen column centres and depth (q) by group size */
 static const signed char LINE_X[3][3] = { { 32, 0, 0 }, { 20, 44, 0 }, { 12, 32, 52 } };
@@ -207,8 +188,7 @@ static void hurt_enemy(unsigned char t, unsigned char dmg, const char *verb)
     if (!e_hp[t]) {
         render_lineup();                     /* gone                           */
         sb_start("THE "); sb_str(md->name);
-        sb_str(md->fire_weak ? " FADES AWAY!" : e_kind == OBJ_BAT || e_kind == OBJ_SPIDER ? " FALLS!" :
-               e_kind == OBJ_LICH ? " TURNS TO DUST!" : " CRUMBLES!");
+        sb_str(md->death);
         say(sbuf);
         kills++;
         draw_group();
@@ -216,7 +196,7 @@ static void hurt_enemy(unsigned char t, unsigned char dmg, const char *verb)
 }
 
 static const char * const MAIN_MENU[4] = { "FIGHT", "MAGIC", "ITEM", "RUN" };
-static const char * const MAGIC_MENU[3] = { "HEAL 3MP", "FIRE 2MP", "BACK" };
+static const char * const MAGIC_MENU[3] = { HEAL_LABEL, FIRE_LABEL, "BACK" };
 
 /* returns 1 if the player escaped */
 static void clear_prompt(void) { clear_row(22); clear_row(23); }
@@ -242,9 +222,9 @@ static unsigned char player_turn(void)
             t = ui_menu((const char **)MAGIC_MENU, 3);
             clear_prompt();
             if (t == 0) {
-                if (mp < 3) { say("NOT ENOUGH MP!"); continue; }
-                mp -= 3;
-                d = 12 + plv * 3;
+                if (mp < HEAL_MP) { say("NOT ENOUGH MP!"); continue; }
+                mp -= HEAL_MP;
+                d = HEAL_BASE + plv * HEAL_LV;
                 hp = hp + d > maxhp ? maxhp : hp + d;
                 SFX_MAGIC();
                 draw_status();
@@ -252,15 +232,15 @@ static unsigned char player_turn(void)
                 return 0;
             }
             if (t == 1) {
-                if (mp < 2) { say("NOT ENOUGH MP!"); continue; }
+                if (mp < FIRE_MP) { say("NOT ENOUGH MP!"); continue; }
                 t = pick_target();
                 if (t == 0xFF) continue;
                 clear_prompt();
-                mp -= 2;
+                mp -= FIRE_MP;
                 draw_status();
                 SFX_MAGIC();
-                d = 7 + plv * 2 + (rnd() & 3);
-                if (md->fire_weak) { d <<= 1; say("THE FLAMES SEAR IT!"); }
+                d = FIRE_BASE + plv * FIRE_LV + (rnd() & 3);
+                if (md->flags & FIRE_WEAK) { d <<= 1; say("THE FLAMES SEAR IT!"); }
                 hurt_enemy(t, d, "FIRE BURNS THE ");
                 return 0;
             }
@@ -287,14 +267,16 @@ static void enemies_turn(void)
         e_frame[i] = 1;                      /* attack pose                    */
         render_lineup();
         e_frame[i] = 0;
-        if (e_kind == OBJ_LICH && !(bt_round & 1)) {     /* every other round  */
-            d = 12 + rnd() % 6;
-            d = d > eff_def() / 2 ? d - eff_def() / 2 : 1;
+        if (md->sp_every && bt_round % md->sp_every == 0) {   /* its special attack */
+            unsigned char a = md->sp_armor ? eff_def() / md->sp_armor : 0;
+            d = md->sp_dmg + rnd() % md->sp_rnd;
+            d = d > a ? d - a : 1;
             hp = hp > d ? hp - d : 0;
             hits_taken++;
             SFX_MAGIC();
             draw_status();
-            sb_start("THE LICH KING CASTS SOUL|FIRE FOR "); sb_num(d); sb_str(" DAMAGE!");
+            sb_start("THE "); sb_str(md->name); sb_str(" "); sb_str(md->spell);
+            sb_str(" "); sb_num(d); sb_str(" DAMAGE!");
             say(sbuf);
             continue;
         }
@@ -320,12 +302,12 @@ static void victory(void)
     say(sbuf);
     xp += gx;
     gold += gg;
-    while (plv < MAX_LEVEL && xp >= NEXT_XP[plv - 1]) {
+    while (plv < MAX_LEVEL && xp >= next_xp[plv - 1]) {
         plv++;
-        maxhp = maxhp > 93 ? 99 : maxhp + 6;
-        maxmp = maxmp > 96 ? 99 : maxmp + 3;
-        patk += 2; pdef += 1;
-        hp += 6; mp += 3;
+        maxhp = maxhp > 99 - LV_HP ? 99 : maxhp + LV_HP;
+        maxmp = maxmp > 99 - LV_MP ? 99 : maxmp + LV_MP;
+        patk += LV_ATK; pdef += LV_DEF;
+        hp += LV_HP; mp += LV_MP;
         if (hp > maxhp) hp = maxhp;
         if (mp > maxmp) mp = maxmp;
         draw_status();
@@ -333,21 +315,24 @@ static void victory(void)
         sb_start("LEVEL UP! YOU ARE NOW|LEVEL "); sb_num(plv);
         say(sbuf);
     }
-    if (rnd() % 3 == 0) {
-        potions++;
+    if (rnd() % LOOT_ONE_IN == 0 && items[LOOT_ITEM] < 99) {
+        items[LOOT_ITEM]++;
         SFX_PICKUP();
-        say("YOU FOUND A POTION!");
+        sb_start("YOU FOUND A "); sb_str(cons_name[LOOT_ITEM]); sb_str("!");
+        say(sbuf);
     }
 }
 
 void new_player(void)
 {
+    unsigned char i;
     plv = 1;
-    maxhp = hp = 24;
-    maxmp = mp = 6;
-    patk = 6; pdef = 2;
+    maxhp = hp = PL_HP;
+    maxmp = mp = PL_MP;
+    patk = PL_ATK; pdef = PL_DEF;
     xp = 0; gold = 0;
-    potions = 1; ethers = 0; nkeys = 0;
+    for (i = 0; i < NCONS; i++) items[i] = cons_start[i];
+    nkeys = PL_KEYS;
     weapon = 0; armor = 0;
 }
 
@@ -357,20 +342,20 @@ void battle(unsigned char obj)
     in_battle = 1;
     bt_round = 0;
     e_kind = obj_type[obj];
-    md = &MON[e_kind];
+    md = MON(e_kind);
     e_n = obj_n[obj];
     if (e_n < 1) e_n = 1;
     if (e_n > 3) e_n = 3;
     for (i = 0; i < 3; i++) { e_hp[i] = i < e_n ? md->hp : 0; e_frame[i] = 0; }
 
-    music_play(e_kind == OBJ_LICH ? MUS_BOSS : MUS_BATTLE);
+    music_play((md->flags & KF_BOSS) ? MUS_BOSS : MUS_BATTLE);
     for (y = 16; y < 24; y++) clear_row(y);
     draw_status();
     draw_group();
     render_lineup();
     if (e_n > 1) {
-        sb_start(e_kind == OBJ_BAT ? "A SWARM OF " : "A PACK OF ");
-        sb_num(e_n); sb_str(" "); sb_str(md->name); sb_str("S!");
+        sb_start(md->group); sb_str(" ");
+        sb_num(e_n); sb_str(" "); sb_str(md->plural); sb_str("!");
     } else {
         sb_start("A "); sb_str(md->name); sb_str(" APPEARS!");
     }
@@ -381,14 +366,14 @@ void battle(unsigned char obj)
         if (player_turn()) {                 /* ran away                        */
             obj_stun[obj] = 4;
             bt_result = 2;
-            music_play(MUS_KEEP + level);
+            music_play(level_music[level]);
             break;
         }
         for (alive = 0, i = 0; i < e_n; i++) if (e_hp[i]) alive++;
         if (!alive) {
             obj_type[obj] = 0;
             bt_result = 1;
-            music_play_then(MUS_VICTORY, MUS_KEEP + level);
+            music_play_then(MUS_VICTORY, level_music[level]);
             victory();
             break;
         }

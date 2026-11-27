@@ -5,20 +5,19 @@
 /* player */
 extern unsigned char level, px, py, pf;
 extern unsigned char hp, maxhp, mp, maxmp, plv, patk, pdef;
-extern unsigned char potions, ethers, nkeys, weapon, armor;
+extern unsigned char items[NCONS], nkeys, weapon, armor;
 extern unsigned int xp, gold;
 extern unsigned char won, quick_mode;
 extern unsigned char dead, ai_off, in_battle;
 extern unsigned char ev_done[16];
-extern unsigned char visited[NLEVELS][32];
 extern unsigned int kills, hits_taken;
 extern unsigned char back_buf;
 
 /* objects */
 extern unsigned char obj_type[NOBJ], obj_lvl[NOBJ], obj_x[NOBJ], obj_y[NOBJ], obj_n[NOBJ], obj_stun[NOBJ];
 extern unsigned char obj_frame[NOBJ];
-#define IS_MONSTER(t) ((t) == OBJ_SKEL || (t) == OBJ_BAT || (t) == OBJ_GHOST || (t) == OBJ_SPIDER || (t) == OBJ_LICH)
-#define BLOCKS(t)     (IS_MONSTER(t) || (t) == OBJ_MERCHANT)
+#define IS_MONSTER(t) ((unsigned char)((t) - 1) < NMON)      /* kinds 1..NMON */
+#define BLOCKS(t)     (kind_flags[t] & KF_BLOCKS)
 
 /* HUD / text */
 void put_tile(unsigned char x, unsigned char y, unsigned int t);
@@ -60,20 +59,18 @@ extern unsigned char bt_say_frames;
 /* menus.c */
 unsigned char eff_atk(void);
 unsigned char eff_def(void);
-unsigned char use_item_menu(void);   /* potion / ether; 1 if one was used      */
+unsigned char use_item_menu(void);   /* any consumable; 1 if one was used      */
+unsigned char use_item(unsigned char i);   /* drink one; 0 if you have none      */
 void shop(void);
 void pause_menu(void);
 unsigned char save_game(void);
 unsigned char load_game(void);       /* 1 = a valid save was restored           */
 unsigned char save_valid(void);
 extern unsigned char saves_made, loads_made;
-extern const char * const WEAPON_NAME[4];
-extern const char * const ARMOR_NAME[4];
 
 /* game.c */
 void print_num(unsigned char x, unsigned char y, unsigned int v, unsigned char digits);
 void draw_inventory(void);
 void open_automap(void);
 void after_load(void);
-void store_level_map(void);
 #endif

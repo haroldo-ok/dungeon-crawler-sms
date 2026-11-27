@@ -7,11 +7,12 @@ extern const unsigned int music_period[64];
 #define MUS_TITLE 0
 #define MUS_KEEP 1
 #define MUS_CRYPT 2
-#define MUS_CATACOMBS 3
-#define MUS_BATTLE 4
-#define MUS_BOSS 5
-#define MUS_VICTORY 6
-#define MUS_GAMEOVER 7
-#define MUS_ENDING 8
+#define MUS_MINES 3
+#define MUS_CATACOMBS 4
+#define MUS_BATTLE 5
+#define MUS_BOSS 6
+#define MUS_VICTORY 7
+#define MUS_GAMEOVER 8
+#define MUS_ENDING 9
 #define MUS_NONE 0xFF
 #endif

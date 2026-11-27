@@ -21,27 +21,24 @@ def arr(name):
 
 
 PAL = arr("pal_bg")
-MAP = arr("map_init")
-CK = arr("cell_kind")
-FB, WB, WB2 = banks[D["FLOOR_BANK"]], banks[D["WALL_BANK"]], banks[D["WALL_BANK2"]]
-SBK = [banks[D["SPR_BANK"]], banks[D["SPR_BANK2"]], banks[D["SPR_BANK3"]]]
-OBJI = arr("obj_init")
-
-
-# object kind -> (scale class, idle frame)
-KIND = {1: (0, 0), 2: (1, 3), 3: (2, 4), 4: (0, 8), 5: (3, 7), 6: (0, 11), 7: (3, 12), 8: (4, 16), 9: (1, 15)}
+import json
+META = json.load(open(os.path.join(G, "meta.json")))      # written by gen.py from content.py
+SPR0 = META["spr_bank"]
 
 
 def render(cx, cy, f, pose, level=0, objs=None, mapdata=None, direct=None):
     """objs: list of (world x, world y, class, frame); default = the level's initial objects.
     direct: battle line-up, list of (xc, q, class, frame) drawn in front of everything"""
-    MAPL = mapdata if mapdata is not None else MAP[level * 256:(level + 1) * 256]
+    LV = META["levels"][level]
+    FB, WB, WB2 = (banks[b] for b in LV["banks"])          # the level's texture set
+    CK = LV["kinds"]
+    MAPL = mapdata if mapdata is not None else META["maps"][level]
     if objs is None:
         objs = []
-        for i in range(0, len(OBJI), 5):
-            t, l, x, y, n = OBJI[i:i + 5]
+        for k, l, x, y, n in META["objects"]:
             if l == level:
-                objs.append((x, y) + KIND[t])
+                kd = META["kinds"][k]
+                objs.append((x, y, kd["cls"], kd["frame"]))
     P = banks[D["POSE_BANK0"] + pose]
     hb = 0x900
     n = P[hb]
@@ -133,7 +130,7 @@ def render(cx, cy, f, pose, level=0, objs=None, mapdata=None, direct=None):
         hgt = P[tb + 0x100 + q]; w2 = hgt >> 1
         step = P[tb + 0x200 + q] | (P[tb + 0x300 + q] << 8)
         dq = 255 if direct else q
-        SB = SBK[frame >> 3]
+        SB = banks[SPR0 + (frame >> 3)]
         frame &= 7
         x0, x1 = xc - w2, min(64, xc + w2)
         ys, ye = max(0, top), min(48, top + hgt)

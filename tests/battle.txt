@@ -129,7 +129,7 @@ expect hp > 0 w1
 run 200
 echo 2. HEAL, POTION and FIRE against three bats
 poke hp 5 w1
-poke potions 2 w1
+poke items+0 2 w1
 poke px 9 w1
 poke py 7 w1
 poke pf 1 w1
@@ -171,7 +171,7 @@ hold 1
 run 4
 hold none
 run 300
-expect potions == 1 w1
+expect items+0 == 1 w1
 hold right
 run 4
 hold none

@@ -18,6 +18,7 @@ unsigned char r_cx, r_cy, r_f, r_pose, r_buf, flip_buf;
 unsigned char k_x;                   /* current column                         */
 unsigned char wc_pass;               /* wall pass: 0 = bank A, 1 = bank B      */
 unsigned char wall_b_used;           /* any door/stairs face in view           */
+unsigned char tex_fbank, tex_wbank, tex_wbank2;   /* the current level's texture set   */
 unsigned int  spr_fb, spr_acc, spr_step;
 unsigned char spr_n, spr_page;
 unsigned char vis_n;
@@ -267,7 +268,7 @@ unsigned char prof_stage;            /* which stage is running (for profiling) *
 void render_frame(void)
 {
     MAP_SLOT2(POSE_BANK0 + r_pose);  /* this pose's ray tables              */
-    MAP_SLOT1(FLOOR_BANK);           /* floor/ceiling/sky textures           */
+    MAP_SLOT1(tex_fbank);            /* floor/ceiling/sky textures           */
     prof_stage = 1;
 #ifdef ASM_CELLS
     asm_setup_cells();
@@ -289,7 +290,7 @@ void render_frame(void)
 #endif
     prof_stage = 4;
     for (wc_pass = 0; wc_pass < 1 + wall_b_used; wc_pass++) {
-        MAP_SLOT1(wc_pass ? WALL_BANK2 : WALL_BANK);
+        MAP_SLOT1(wc_pass ? tex_wbank2 : tex_wbank);
 #ifdef ASM_WALL
         asm_wall_column();
 #else
@@ -306,7 +307,7 @@ void render_frame(void)
 void render_upload(void)
 {
     prof_stage = 5;
-    MAP_SLOT1(FLOOR_BANK);
+    MAP_SLOT1(tex_fbank);            /* every floor bank starts with the c2p LUT */
 #ifdef ASM_C2P
     asm_c2p_upload();
 #else
@@ -316,10 +317,13 @@ void render_upload(void)
     prof_stage = 0;
 }
 
-void render_init(void)
+/* select a texture set: its banks + cell kinds (call with bank 1 mapped) */
+void render_set_theme(unsigned char t)
 {
     unsigned char i;
-    for (i = 0; i < 128; i++) XK[i] = cell_kind[i];
+    const unsigned char *k = theme_kinds + ((unsigned int)t << 7), *b = theme_bank + t * 3;
+    for (i = 0; i < 128; i++) XK[i] = k[i];
+    tex_fbank = b[0]; tex_wbank = b[1]; tex_wbank2 = b[2];
 }
 
 void show_buffer(unsigned char buf)

@@ -676,7 +676,7 @@ waituntil moves >= 84 2000
 run 90
 expect px == 12 w1
 expect py == 3 w1
-echo down to the catacombs
+echo down to the mines
 hold left
 run 4
 hold none
@@ -687,29 +687,15 @@ run 4
 hold none
 waituntil level == 2 2000 w1
 run 120
-expect px == 13 w1
-expect py == 13 w1
-expect pf == 3 w1
-screenshot shots/play_catacombs.ppm
-hold left
-run 4
-hold none
-waituntil turns >= 29 2000
-run 90
-hold left
-run 4
-hold none
-waituntil turns >= 30 2000
-run 90
+expect px == 1 w1
+expect py == 1 w1
+expect pf == 2 w1
+expect music_cur == 3 w1
+screenshot shots/play_mines.ppm
 hold up
 run 4
 hold none
 waituntil moves >= 85 2000
-run 90
-hold left
-run 4
-hold none
-waituntil turns >= 31 2000
 run 90
 hold up
 run 4
@@ -726,15 +712,246 @@ run 4
 hold none
 waituntil moves >= 88 2000
 run 90
+hold left
+run 4
+hold none
+waituntil turns >= 29 2000
+run 90
 hold up
 run 4
 hold none
 waituntil moves >= 89 2000
 run 90
+hold up
+run 4
+hold none
+waituntil moves >= 90 2000
+run 90
+hold right
+run 4
+hold none
+waituntil turns >= 30 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 91 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 92 2000
+run 90
+hold right
+run 4
+hold none
+waituntil turns >= 31 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 93 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 94 2000
+run 90
 hold left
 run 4
 hold none
 waituntil turns >= 32 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 95 2000
+run 90
+echo battle: 1 x SLIME
+hold up
+run 4
+hold none
+waituntil in_battle == 1 600 w1
+run 60
+hold 1
+run 4
+hold none
+run 30
+run 200
+waituntil in_battle == 0 900 w1
+expect bt_result == 1 w1
+run 120
+hold up
+run 4
+hold none
+waituntil moves >= 96 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 97 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 98 2000
+run 90
+expect px == 1 w1
+expect py == 11 w1
+echo pull the lever: the rock wall at 4,13 opens
+hold 1
+run 4
+hold none
+waituntil uses >= 3 2000
+run 90
+expect 0xD7D4 == 4 w1
+screenshot shots/play_lever.ppm
+hold left
+run 4
+hold none
+waituntil turns >= 33 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 99 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 100 2000
+run 90
+hold right
+run 4
+hold none
+waituntil turns >= 34 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 101 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 102 2000
+run 90
+hold left
+run 4
+hold none
+waituntil turns >= 35 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 103 2000
+run 90
+echo battle: 1 x GOLEM
+hold up
+run 4
+hold none
+waituntil in_battle == 1 600 w1
+run 60
+hold 1
+run 4
+hold none
+run 30
+run 300
+hold 1
+run 4
+hold none
+run 30
+run 300
+hold 1
+run 4
+hold none
+run 30
+run 300
+hold 1
+run 4
+hold none
+run 30
+run 300
+run 200
+waituntil in_battle == 0 900 w1
+expect bt_result == 1 w1
+run 120
+hold up
+run 4
+hold none
+waituntil moves >= 104 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 105 2000
+run 90
+hold right
+run 4
+hold none
+waituntil turns >= 36 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 106 2000
+run 90
+expect px == 6 w1
+expect py == 14 w1
+echo down to the catacombs
+hold up
+run 4
+hold none
+waituntil level == 3 2000 w1
+run 120
+expect px == 13 w1
+expect py == 13 w1
+expect pf == 3 w1
+screenshot shots/play_catacombs.ppm
+hold left
+run 4
+hold none
+waituntil turns >= 37 2000
+run 90
+hold left
+run 4
+hold none
+waituntil turns >= 38 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 107 2000
+run 90
+hold left
+run 4
+hold none
+waituntil turns >= 39 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 108 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 109 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 110 2000
+run 90
+hold up
+run 4
+hold none
+waituntil moves >= 111 2000
+run 90
+hold left
+run 4
+hold none
+waituntil turns >= 40 2000
 run 90
 echo battle: 2 x SPIDER
 hold up
@@ -766,52 +983,52 @@ run 120
 hold up
 run 4
 hold none
-waituntil moves >= 90 2000
+waituntil moves >= 112 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 91 2000
+waituntil moves >= 113 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 92 2000
+waituntil moves >= 114 2000
 run 90
 hold right
 run 4
 hold none
-waituntil turns >= 33 2000
+waituntil turns >= 41 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 93 2000
+waituntil moves >= 115 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 94 2000
+waituntil moves >= 116 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 95 2000
+waituntil moves >= 117 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 96 2000
+waituntil moves >= 118 2000
 run 90
 hold left
 run 4
 hold none
-waituntil turns >= 34 2000
+waituntil turns >= 42 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 97 2000
+waituntil moves >= 119 2000
 run 90
 echo battle: 3 x SKEL
 hold up
@@ -852,57 +1069,57 @@ run 120
 hold up
 run 4
 hold none
-waituntil moves >= 98 2000
+waituntil moves >= 120 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 99 2000
+waituntil moves >= 121 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 100 2000
+waituntil moves >= 122 2000
 run 90
 hold right
 run 4
 hold none
-waituntil turns >= 35 2000
+waituntil turns >= 43 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 101 2000
+waituntil moves >= 123 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 102 2000
+waituntil moves >= 124 2000
 run 90
 hold right
 run 4
 hold none
-waituntil turns >= 36 2000
+waituntil turns >= 44 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 103 2000
+waituntil moves >= 125 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 104 2000
+waituntil moves >= 126 2000
 run 90
 hold left
 run 4
 hold none
-waituntil turns >= 37 2000
+waituntil turns >= 45 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 105 2000
+waituntil moves >= 127 2000
 run 90
 echo battle: 2 x SPIDER
 hold up
@@ -934,42 +1151,42 @@ run 120
 hold up
 run 4
 hold none
-waituntil moves >= 106 2000
+waituntil moves >= 128 2000
 run 90
 hold left
 run 4
 hold none
-waituntil turns >= 38 2000
+waituntil turns >= 46 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 107 2000
+waituntil moves >= 129 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 108 2000
+waituntil moves >= 130 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 109 2000
+waituntil moves >= 131 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 110 2000
+waituntil moves >= 132 2000
 run 90
 hold left
 run 4
 hold none
-waituntil turns >= 39 2000
+waituntil turns >= 47 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 111 2000
+waituntil moves >= 133 2000
 run 90
 expect px == 5 w1
 expect py == 2 w1
@@ -977,22 +1194,22 @@ echo the boss door
 hold right
 run 4
 hold none
-waituntil turns >= 40 2000
+waituntil turns >= 48 2000
 run 90
 hold 1
 run 4
 hold none
-waituntil uses >= 3 2000
+waituntil uses >= 4 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 112 2000
+waituntil moves >= 134 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 113 2000
+waituntil moves >= 135 2000
 run 90
 echo battle: 1 x LICH
 hold up
@@ -1027,18 +1244,18 @@ run 120
 hold up
 run 4
 hold none
-waituntil moves >= 114 2000
+waituntil moves >= 136 2000
 run 90
 hold up
 run 4
 hold none
-waituntil moves >= 115 2000
+waituntil moves >= 137 2000
 run 90
 expect px == 1 w1
 expect py == 2 w1
 echo the crown and the ending
 waituntil in_ending == 1 6000 w1
-expect music_cur == 8 w1
+expect music_cur == 9 w1
 run 600
 screenshot shots/play_ending.ppm
 hold 1
@@ -1047,7 +1264,7 @@ hold none
 run 300
 expect ending_seen == 1 w1
 expect in_title == 0 w1
-expect kills >= 7
+expect kills >= 9
 screenshot shots/play_win.ppm
 echo automap
 hold 2
