@@ -3,6 +3,8 @@
 cd "$(dirname "$0")/.."
 cat > /tmp/snd.txt <<'S'
 symbols dungeon.noi
+poke 0xDAF0 23
+poke 0xDAF1 90
 waituntil game_ready == 1 3000 w1
 psglog /tmp/snd.log
 hold up

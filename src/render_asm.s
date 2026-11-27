@@ -15,6 +15,8 @@
         .globl  _asm_wall_column
         .globl  _asm_c2p_upload
         .globl  _asm_show_buffer
+        .globl  _asm_spr_column
+        .globl  _wc_pass, _wall_b_used, _spr_fb, _spr_n, _spr_acc, _spr_step, _spr_page
         .globl  _r_cx, _r_cy, _r_f, _r_buf, _flip_buf
 
 FBPAGE  = 0xC4
@@ -142,6 +144,11 @@ rw_hit:
         ld      l,a
         ld      h,#>COLW
         ld      (hl),d
+        ld      h,#0xD9
+        set     7,l                     ; col_q = 0xD980 + x (depth for sprites)
+        ld      (hl),c
+        ld      h,#>COLW
+        res     7,l
         bit     7,b
         jr      z,rw_wall
         ld      l,a
@@ -183,7 +190,11 @@ rw_wall:
         and     #3
         add     a,b
         ld      b,a                     ; B = page
-        ld      a,(fl_x)
+        bit     7,b
+        jr      z,rw_pa
+        ld      a,#1
+        ld      (_wall_b_used),a        ; a door/stairs face is in view
+rw_pa:  ld      a,(fl_x)
         ld      l,a
         ld      h,#>COLW
         set     6,l
@@ -437,6 +448,24 @@ wc_col:
         or      a
         jp      z,wc_next
         ld      (fl_k),a
+        set     6,l
+        ld      a,(hl)                  ; texture page (0 = fog)
+        res     6,l
+        ld      b,a
+        ; pass 0 draws fog + bank-A pages (0x40-0x7F), pass 1 bank-B pages (0x80-0xBF)
+        ld      a,(_wc_pass)
+        or      a
+        jr      nz,wc_passb
+        bit     7,b
+        jp      nz,wc_next
+        jr      wc_base
+wc_passb:
+        bit     7,b
+        jp      z,wc_next
+        ld      a,b
+        sub     #0x40
+        ld      b,a
+wc_base:
         ; column base: page FBPAGE + x>>2, offset ((x>>1)&1)<<7 | (x&1)
         ld      a,l
         and     #2
@@ -453,11 +482,10 @@ wc_col:
         and     #0x3F
         add     a,#FBPAGE
         ld      d,a                     ; DE = column base
-        set     6,l
-        ld      a,(hl)                  ; texture page
+        ld      a,b
         or      a
         jp      z,wc_fog
-        ld      b,a
+wc_draw:
         ; IY = base - 2*(24-W)
         ld      a,(fl_k)
         sub     #24                     ; W-24 (<= 0)
@@ -698,6 +726,9 @@ wc_unroll:
         add     hl,de
         jr      wc_next
 wc_fog:
+        ld      a,(_wc_pass)
+        or      a
+        jr      nz,wc_next
         ld      a,(fl_k)
         add     a,a
         ld      b,a                     ; 2W rows
@@ -721,6 +752,39 @@ wc_next:
         jp      c,wc_col
         pop     iy
         pop     ix
+        ret
+
+;; ---------------------------------------------------------------------------
+;; asm_spr_column: one billboard column with transparency (texel 0xFF).
+;;   spr_fb = FB pointer of the first row, spr_n = rows, spr_acc = texture v
+;;   (8.8, high byte includes the column offset in the page), spr_step,
+;;   spr_page = texture page (slot 1).
+;; ---------------------------------------------------------------------------
+_asm_spr_column:
+        ld      a,(_spr_n)
+        or      a
+        ret     z
+        exx
+        ld      hl,(_spr_acc)
+        ld      bc,(_spr_step)
+        ld      a,(_spr_page)
+        ld      d,a
+        exx
+        ld      b,a                     ; (overwritten below)
+        ld      a,(_spr_n)
+        ld      b,a
+        ld      hl,(_spr_fb)
+sp_l:   exx
+        ld      e,h
+        ld      a,(de)
+        add     hl,bc
+        exx
+        cp      #0xFF
+        jr      z,sp_s
+        ld      (hl),a
+sp_s:   inc     l
+        inc     l
+        djnz    sp_l
         ret
 
 ;; ---------------------------------------------------------------------------

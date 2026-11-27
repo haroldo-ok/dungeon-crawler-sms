@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """Compare the view area of an smstest screenshot against simrender's output.
-usage: cmpview.py shot.ppm cx cy f pose"""
+usage: cmpview.py shot.ppm cx cy f pose level"""
 import sys, subprocess
 from PIL import Image
 sys.argv, args = sys.argv[:2], sys.argv[2:]
 exec(open('tools/simrender.py').read().split('if __name__')[0].replace("G = sys.argv[1]", "G = 'gen'"))
-cx, cy, f, pose = map(int, args)
-ref = render(cx, cy, f, pose)
+cx, cy, f, pose, level = map(int, args[:5])
+direct = None
+if pose == 128:                       # battle view: line-up given as xc:q:cls:frame,...
+    direct = [tuple(int(v) for v in e.split(":")) for e in args[5].split(",")]
+    pose = 0
+ref = render(cx, cy, f, pose, level, direct=direct)
 im = Image.open(sys.argv[1]).convert('RGB')
 bad = 0
 for y in range(48):

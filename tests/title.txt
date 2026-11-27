@@ -1,0 +1,21 @@
+# The title screen: logo over a turning courtyard, title music, press 1 to start.
+symbols dungeon.noi
+waituntil in_title == 1 600 w1
+run 300
+expect in_title == 1 w1
+expect shown_pose == 254 w1
+expect music_cur == 0 w1
+expectcolors 12
+screenshot shots/title_a.ppm
+run 200
+screenshot shots/title_b.ppm
+hold 1
+run 4
+hold none
+waituntil game_ready == 1 600 w1
+run 200
+expect in_title == 0 w1
+expect music_cur == 1 w1
+expect px == 1 w1
+expect py == 1 w1
+expectpace 0

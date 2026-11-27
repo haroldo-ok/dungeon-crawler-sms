@@ -16,6 +16,12 @@ unsigned char r_cx, r_cy, r_f, r_pose, r_buf, flip_buf;
 
 /* kernel parameters shared with the asm (render_asm.s) */
 unsigned char k_x;                   /* current column                         */
+unsigned char wc_pass;               /* wall pass: 0 = bank A, 1 = bank B      */
+unsigned char wall_b_used;           /* any door/stairs face in view           */
+unsigned int  spr_fb, spr_acc, spr_step;
+unsigned char spr_n, spr_page;
+unsigned char vis_n;
+unsigned char vis_x[MAX_VIS], vis_y[MAX_VIS], vis_frame[MAX_VIS], vis_type[MAX_VIS];
 
 #define QW   ((const unsigned char *)0x8000)
 #define QV0L ((const unsigned char *)0x8100)
@@ -57,10 +63,12 @@ static void ray_walk(void)
             rp += 3;
         }
         col_W[x] = QW[q];
+        col_q[x] = q;
         if (wt) {
             unsigned char tcs = rp[2], tc = tcs & 31;
             unsigned char shade = ((tcs >> 7) ^ r_f) & 1;
             col_page[x] = 0x40 + (((((wt - 1) << 1) + shade) << 1) + (x & 1) << 2) + (tc >> 3);
+            if (col_page[x] >= 0x80) wall_b_used = 1;
             col_acc[x] = ((unsigned int)((tc & 7) << 5) << 8) + (QV0L[q] | (QV0H[q] << 8));
             col_step[x] = QSL[q] | (QSH[q] << 8);
         } else {
@@ -123,12 +131,14 @@ static void wall_column(void)
     if (col_page[x]) {
         unsigned int acc = col_acc[x], st = col_step[x];
         unsigned char pg = col_page[x];
+        if ((pg >= 0x80) != wc_pass) return;
+        if (pg >= 0x80) pg -= 0x40;
         while (n--) {
             *p = *(const unsigned char *)(((unsigned int)pg << 8) | (acc >> 8));
             p += 2;
             acc += st;
         }
-    } else {
+    } else if (!wc_pass) {
         while (n--) { *p = 0; p += 2; }
     }
 }
@@ -161,6 +171,97 @@ static void c2p_upload(void)
 #endif
 
 
+#ifndef ASM_SPR
+static void spr_column(void)
+{
+    unsigned char n = spr_n, *p = (unsigned char *)spr_fb;
+    unsigned int acc = spr_acc;
+    while (n--) {
+        unsigned char t = *(const unsigned char *)(((unsigned int)spr_page << 8) | (acc >> 8));
+        if (t != 0xFF) *p = t;
+        p += 2;
+        acc += spr_step;
+    }
+}
+#endif
+
+/* Billboards.  Every object stands at a cell centre, and the camera has only
+   NPOSE poses relative to its cell, so each pose bank holds a table giving the
+   screen column and depth (q) of an object in each nearby canonical cell.  At
+   run time we rotate the object's cell offset into the canonical frame, look
+   it up, and scale the sprite column by column, skipping columns where the
+   wall is nearer (col_q).  Far objects are drawn first.                      */
+static unsigned char ord[MAX_VIS], o_q[MAX_VIS];
+static signed char o_xc[MAX_VIS];
+unsigned char vis_direct;            /* 1: vis_x = screen column, vis_y = q, no depth test (battle) */
+
+static void draw_objects(void)
+{
+    unsigned char i, j, n = 0, q;
+    signed char xc;
+    for (i = 0; i < vis_n; i++) {
+        if (vis_direct) {
+            xc = (signed char)vis_x[i]; q = vis_y[i];
+        } else {
+            signed char dx = vis_x[i] - r_cx, dy = vis_y[i] - r_cy, da, db;
+            const unsigned char *e;
+            switch (r_f) {
+            case 0: da = dx;  db = -dy; break;
+            case 1: da = dy;  db = dx;  break;
+            case 2: da = -dx; db = dy;  break;
+            default: da = -dy; db = -dx; break;
+            }
+            if (da < BB_DA0 || da > BB_DA1 || db < BB_DB0 || db > BB_DB1) continue;
+            e = (const unsigned char *)BB_TABLE + ((db - BB_DB0) * BB_NA + (da - BB_DA0)) * 2;
+            if (!e[1]) continue;
+            xc = (signed char)e[0]; q = e[1];
+        }
+        /* insertion sort by q, far (small q) first */
+        j = n;
+        while (j && o_q[j - 1] > q) { ord[j] = ord[j - 1]; o_q[j] = o_q[j - 1]; o_xc[j] = o_xc[j - 1]; j--; }
+        ord[j] = i; o_q[j] = q; o_xc[j] = xc;
+        n++;
+    }
+    for (j = 0; j < n; j++) {
+        unsigned char k = ord[j], frame = vis_frame[k], dq;
+        const unsigned char *tb = (const unsigned char *)(SCALE_TAB + (unsigned int)vis_type[k] * 0x400);
+        signed char top;
+        unsigned char hgt, w2;
+        unsigned int step;
+        int x0, x1, xs, ys, ye;
+        unsigned int u, v0;
+        q = o_q[j];
+        dq = vis_direct ? 255 : q;   /* battle line-up is always in front */
+        top = (signed char)tb[q];
+        hgt = tb[0x100 + q]; w2 = hgt >> 1;
+        step = tb[0x200 + q] | (tb[0x300 + q] << 8);
+        x0 = o_xc[j] - w2; x1 = o_xc[j] + w2;
+        ys = top < 0 ? 0 : top;
+        ye = top + hgt; if (ye > 48) ye = 48;
+        if (ys >= ye) continue;
+        MAP_SLOT1(SPR_BANK + (frame >> 3));
+        frame &= 7;
+        v0 = (unsigned int)(ys - top) * step;
+        xs = x0 < 0 ? 0 : x0;
+        if (x1 > 64) x1 = 64;
+        u = (unsigned int)(xs - x0) * step;
+        for (; xs < x1; xs++, u += step) {
+            unsigned char x = (unsigned char)xs, uc = u >> 8;
+            if (col_q[x] >= dq) continue;
+            spr_page = 0x40 + ((((frame << 1) + (x & 1)) << 2)) + (uc >> 3);
+            spr_acc = ((unsigned int)((uc & 7) << 5) << 8) + v0;
+            spr_step = step;
+            spr_fb = (unsigned int)(fb_col(x) + 2 * ys);
+            spr_n = ye - ys;
+#ifdef ASM_SPR
+            asm_spr_column();
+#else
+            spr_column();
+#endif
+        }
+    }
+}
+
 unsigned char prof_stage;            /* which stage is running (for profiling) */
 
 void render_frame(void)
@@ -174,6 +275,7 @@ void render_frame(void)
     setup_cells();
 #endif
     prof_stage = 2;
+    wall_b_used = 0;
 #ifdef ASM_RAYS
     asm_ray_walk();
 #else
@@ -186,12 +288,17 @@ void render_frame(void)
     for (k_x = 0; k_x < 64; k_x++) floor_column();
 #endif
     prof_stage = 4;
-    MAP_SLOT1(WALL_BANK);
+    for (wc_pass = 0; wc_pass < 1 + wall_b_used; wc_pass++) {
+        MAP_SLOT1(wc_pass ? WALL_BANK2 : WALL_BANK);
 #ifdef ASM_WALL
-    asm_wall_column();
+        asm_wall_column();
 #else
-    for (k_x = 0; k_x < 64; k_x++) wall_column();
+        for (k_x = 0; k_x < 64; k_x++) wall_column();
 #endif
+    }
+    prof_stage = 6;
+    if (vis_n) draw_objects();
+    MAP_SLOT1(1);                    /* give bank 1 (game code) back           */
     prof_stage = 0;
 }
 
@@ -205,6 +312,7 @@ void render_upload(void)
 #else
     c2p_upload();
 #endif
+    MAP_SLOT1(1);
     prof_stage = 0;
 }
 

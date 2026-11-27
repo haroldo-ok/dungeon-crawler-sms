@@ -8,23 +8,68 @@
 #define FLOOR_BANK 2
 #define WALL_BANK 3
 #define POSE_BANK0 4
-#define ROM_BANKS 26
+#define ROM_BANKS 31
 #define POSE_HDR (0x8000+0x0900)
 #define Q_FOG 6
 #define FLOOR_ROWS 23
 #define T_BG 384
 #define T_FONT 385
-#define T_FRAME 427
-#define HUD_TILES 51
+#define T_FRAME 432
+#define T_ARROW 440
+#define HUD_TILES 57
 #define VIEW_TX 8
 #define VIEW_TY 3
+#define START_L 0
 #define START_X 1
 #define START_Y 1
 #define START_F 2
-#define FONTCHARS " +-./0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+#define SPR_BANK2 28
+#define SPR_BANK3 29
+#define WALL_BANK2 26
+#define SPR_BANK 27
+#define SCALE_TAB (0x8000+0x2600)
+#define BB_TABLE (0x8000+0x3C00)
+#define BB_DA0 (-8)
+#define BB_DA1 8
+#define BB_DB0 (-2)
+#define BB_DB1 12
+#define BB_NA 17
+#define NLEVELS 3
+#define NOBJ 29
+#define EV_MSG 1
+#define EV_KEY 2
+#define EV_TELE 3
+#define EV_HEAL 4
+#define EV_WIN 5
+#define EV_STAIRS 6
+#define EV_CHEST 7
+#define OBJ_SKEL 1
+#define OBJ_KEY 2
+#define OBJ_BAT 3
+#define OBJ_GHOST 4
+#define OBJ_CHEST 5
+#define OBJ_MERCHANT 6
+#define OBJ_SPIDER 7
+#define OBJ_LICH 8
+#define OBJ_CROWN 9
+#define M_DOOR 20
+#define M_LOCKED 21
+#define M_STAIRS 22
+#define M_SECRET 23
+#define M_OPEN 8
+#define FONTCHARS " !'+,-./0123456789:>?ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 extern const unsigned char pal_bg[16];
 extern const unsigned char hud_tiles[];
-extern const unsigned char map_init[256];
+extern const unsigned char map_init[NLEVELS * 256];
 extern const unsigned char view_nt[768];
+extern const unsigned char ev_data[];
+extern const unsigned char ev_start[NLEVELS + 1];
+extern const char * const messages[];
+extern const char * const level_name[NLEVELS];
+extern const unsigned char obj_init[NOBJ * 5];
 extern const unsigned char cell_kind[128];
+extern const unsigned char glyph_tab[96];
+#define DATA_BANK 30
+#define LOGO_RLE (0x8000+0x0000)
+#define THE_END_RLE (0x8000+0x1000)
 #endif

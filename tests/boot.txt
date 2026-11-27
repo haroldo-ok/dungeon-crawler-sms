@@ -1,4 +1,7 @@
 symbols dungeon.noi
+# skip the title screen (test hook, see title_screen in game.c)
+poke 0xDAF0 23
+poke 0xDAF1 90
 waituntil game_ready == 1 3000 w1
 waituntil frames_rendered >= 1 600
 expectvdp display 1
